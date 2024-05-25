@@ -1,0 +1,12 @@
+name: 'Fetch Terraform Output Value'
+description: 'Fetches a Terraform output value from the specified state file.'
+inputs:
+  output-name:
+    description: 'The name of the Terraform output to fetch.'
+    required: true
+  backend-configuration:
+    description: 'The Terraform backend configuration as a JSON string.'
+    required: true
+runs:
+  using: 'node20'
+  main: 'dist/index.js'
