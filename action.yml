@@ -7,6 +7,9 @@ inputs:
   backend-configuration:
     description: 'The Terraform backend configuration as a JSON string.'
     required: true
+outputs:
+  value:
+    description: 'The fetched value.'
 runs:
   using: 'node20'
   main: 'dist/index.js'
