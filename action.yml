@@ -4,6 +4,10 @@ inputs:
   backend-configuration:
     description: 'The Terraform backend configuration as a JSON string.'
     required: true
+  include-sensitive:
+    description: 'Include output values marked as "sensitive". Expected values are "yes" or "no".'
+    default: 'no'
+    required: false
 outputs:
   outputs:
     description: 'A JSON string that represents the output values.'

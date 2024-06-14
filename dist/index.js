@@ -26817,8 +26817,13 @@ function getOutputFromLocal(stateFilePath) {
     var result = {};
     var contents = fs.readFileSync(path.resolve(stateFilePath));
     var outputs = JSON.parse(contents.toString()).outputs;
+    var includeSensitive = (0, core_1.getInput)('include-sensitive') === 'true';
     for (var key in outputs) {
         if (outputs.hasOwnProperty(key)) {
+            if (outputs[key].sensitive && !includeSensitive) {
+                (0, core_1.info)("Skipping sensitive output: ".concat(key));
+                continue;
+            }
             result[key] = outputs[key].value;
         }
     }
@@ -26835,7 +26840,7 @@ function main() {
             throw new Error('Unsupported backend type: ' + backendConfiguration.backendType);
     }
     var result = getOutputFromLocal(stateFilePath);
-    (0, core_1.setOutput)('value', result);
+    (0, core_1.setOutput)('outputs', result);
 }
 main();
 
