@@ -41,11 +41,12 @@ var path = require("path");
 var core_1 = require("@actions/core");
 var tmp = require("tmp");
 var S3 = require("aws-sdk/clients/s3");
+var k8s = require("@kubernetes/client-node");
 function getOutputFromLocal(stateFilePath) {
     var result = {};
     var contents = fs.readFileSync(path.resolve(stateFilePath));
     var outputs = JSON.parse(contents.toString()).outputs;
-    var includeSensitive = (0, core_1.getInput)('include-sensitive') === 'true';
+    var includeSensitive = (0, core_1.getInput)("include-sensitive") === "true";
     for (var key in outputs) {
         if (outputs.hasOwnProperty(key)) {
             if (outputs[key].sensitive && !includeSensitive) {
@@ -59,31 +60,35 @@ function getOutputFromLocal(stateFilePath) {
 }
 function main() {
     return __awaiter(this, void 0, void 0, function () {
-        var backendConfiguration, stateFilePath, _a, config, s3, err, file, result;
+        var terraformWorkspace, backendConfiguration, stateFilePath, _a, config, s3, err, file, k8sConfig, secretName, configPath, kubeConfig, core, secret, data, state, result;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
-                    backendConfiguration = JSON.parse((0, core_1.getInput)('backend-configuration'));
+                    terraformWorkspace = "default";
+                    backendConfiguration = JSON.parse((0, core_1.getInput)("backend-configuration"));
                     stateFilePath = tmp.fileSync().name;
                     _a = backendConfiguration.backendType;
                     switch (_a) {
-                        case 'local': return [3 /*break*/, 1];
-                        case 's3': return [3 /*break*/, 2];
+                        case "local": return [3 /*break*/, 1];
+                        case "s3": return [3 /*break*/, 2];
+                        case "kubernetes": return [3 /*break*/, 4];
                     }
-                    return [3 /*break*/, 4];
+                    return [3 /*break*/, 6];
                 case 1:
                     stateFilePath = backendConfiguration.path;
-                    return [3 /*break*/, 5];
+                    return [3 /*break*/, 7];
                 case 2:
                     config = backendConfiguration;
                     s3 = new S3({
-                        region: config.region
+                        region: config.region,
                     });
                     err = void 0;
-                    return [4 /*yield*/, s3.getObject({
+                    return [4 /*yield*/, s3
+                            .getObject({
                             Bucket: config.bucket,
-                            Key: config.key
-                        }).promise()];
+                            Key: config.key,
+                        })
+                            .promise()];
                 case 3:
                     file = _b.sent();
                     if (!err) {
@@ -92,13 +97,30 @@ function main() {
                         }
                     }
                     else {
-                        throw new Error('Failed to download state file from S3: ' + err);
+                        throw new Error("Failed to download state file from S3: " + err);
                     }
                     _b.label = 4;
-                case 4: throw new Error('Unsupported backend type: ' + backendConfiguration.backendType);
+                case 4:
+                    k8sConfig = backendConfiguration;
+                    secretName = "tfstate-" + terraformWorkspace + "-" + k8sConfig.secretSuffix;
+                    configPath = k8sConfig.configPath;
+                    kubeConfig = new k8s.KubeConfig();
+                    kubeConfig.loadFromFile(configPath);
+                    core = kubeConfig.makeApiClient(k8s.CoreV1Api);
+                    return [4 /*yield*/, core.readNamespacedSecret(secretName, "default")];
                 case 5:
+                    secret = _b.sent();
+                    data = secret.body.data;
+                    if (data == null) {
+                        throw new Error("Failed to read secret from Kubernetes: " + secret);
+                    }
+                    state = data["state"];
+                    fs.writeFileSync(stateFilePath, Buffer.from(state, "base64").toString());
+                    return [3 /*break*/, 7];
+                case 6: throw new Error("Unsupported backend type: " + backendConfiguration.backendType);
+                case 7:
                     result = getOutputFromLocal(stateFilePath);
-                    (0, core_1.setOutput)('outputs', result);
+                    (0, core_1.setOutput)("outputs", result);
                     return [2 /*return*/];
             }
         });
